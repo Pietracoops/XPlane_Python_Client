@@ -1,4 +1,4 @@
-from XPlane_API import XPlaneClient
+from XPlaneApi import XPlaneClient
 import time
 
 # Specify a topic for your program to communicate through
