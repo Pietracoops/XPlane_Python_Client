@@ -11,7 +11,7 @@ class XPlaneClient:
         self.ip = ip
         self.topic = topic
 
-        self.publicatioin_port = 5555
+        self.publication_port = 5555
         self.subscription_port = 5555
 
 
@@ -36,17 +36,28 @@ class XPlaneClient:
         time.sleep(0.5)
         response = self.subscriber.recv_multipart()
 
-        publishing_port = response[1].decode("utf-8")
-        subscribing_port = str(int(publishing_port) + 1)
+        self.publication_port = response[1].decode("utf-8")
+        self.subscription_port = str(int(self.publication_port) + 1)
 
         # Rebind the connection for the new ports
-        self.publisher.bind(f"tcp://{self.ip}:{publishing_port}")
-        self.subscriber.connect(f"tcp://{self.ip}:{subscribing_port}")
+        self.publisher.bind(f"tcp://{self.ip}:{self.publication_port}")
+        self.subscriber.connect(f"tcp://{self.ip}:{self.subscription_port}")
+        print(f"Connected to Xplane Server on ports: {self.subscription_port} and {self.publication_port}")
 
         # Give everything a second to spin up and connect
         time.sleep(1)
-        print("Connected to Xplane Server")
 
+    def disconnect(self):
+        # Send disconnection message to server
+        self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"Disconnection", b"0", b"0"])
+        response = self.subscriber.recv_multipart()
+
+        if "Received" in response[1].decode("utf-8"):
+            self.subscriber.disconnect(f"tcp://{self.ip}:{self.subscription_port}")
+            self.publisher.disconnect(f"tcp://{self.ip}:{self.publication_port}")
+            return True
+        else:
+            return False
 
 
     def getDataRef(self, dref):
@@ -76,7 +87,7 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"set", bytes(dref, 'utf-8'), bytes(value, 'utf-8')])
         response = self.subscriber.recv_multipart()
-        if response[1].decode("utf-8") == "Received":
+        if "Received" in response[1].decode("utf-8"):
             return True
         else:
             return False
@@ -93,7 +104,7 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"command", bytes(dref, 'utf-8'), b"0"])
         response = self.subscriber.recv_multipart()
-        if response[1].decode("utf-8") == "Received":
+        if "Received" in response[1].decode("utf-8"):
             return True
         else:
             return False

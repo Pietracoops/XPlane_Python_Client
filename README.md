@@ -27,6 +27,18 @@ from XPlaneApi import XPlaneClient
 
 The Python API currently has 3 functions available to use as follows:
 
+Connect to the C++ Server by using the connect function seen below.
+
+```
+connect(self):
+```
+
+Disconnect cleanly from the C++ Server by using the connect function seen below.
+
+```
+disconnect(self):
+```
+
 To receive the value of a dataref, use the getDataRef function to receive the value as a string.
 
 ```
@@ -47,28 +59,28 @@ sendCommand(self, dref):
 
 ## Example Program
 
+This example program comes bundled in the package under examples.
+
 ```
 from XPlaneApi import XPlaneClient
 import time
 
-def test_xplaneapi():
-    # Specify a topic for your program to communicate through
-    # Specify also as input IP address of pc containing xplane if not local
-    client = XPlaneClient("Python1")
+# Specify a topic for your program to communicate through
+# Specify also as input IP address of pc containing xplane if not local
+client = XPlaneClient("Python1")
 
-    # Call the connect command
-    client.connect()
+# Call the connect command
+client.connect()
 
-    # Modify and read value at same time
-    for i in range(0, 100, 1):
-        client.setDataRef("sim/cockpit2/engine/actuators/throttle_ratio[0]", str(i/100))
-        dataRefVal = client.getDataRef("sim/cockpit2/engine/actuators/throttle_ratio[0]")
-        print(f"Value received for dref = {dataRefVal}")
-        time.sleep(0.005)
+# Modify and read value at same time
+for i in range(0, 100, 1):
+    if client.setDataRef("sim/cockpit2/engine/actuators/throttle_ratio[0]", str(i/100)) == False:
+        print("command did not execute correctly!")
 
-    ## Example for monitoring a dataref value
-    # while(True):
-    #     dataRefVal = client.getDataRef("sim/cockpit2/engine/actuators/throttle_ratio[0]")
-    #     print(f"Value received for dref = {dataRefVal}")
-    #     time.sleep(0.005)
+    dataRefVal = client.getDataRef("sim/cockpit2/engine/actuators/throttle_ratio[0]")
+    print(f"Value received for dref = {dataRefVal}")
+    time.sleep(0.005)
+
+# Disconnect the client cleanly
+client.disconnect()
 ```
