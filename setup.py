@@ -7,7 +7,7 @@ with open('README.md', encoding='utf-8') as f:
 
 setup(
     name='XPlaneApi',
-    version='0.0.2',
+    version='0.0.3',
     license='MIT',
     author="Massimo Pietracupa",
     author_email='Massimo.Pietracupa@hotmail.com',
