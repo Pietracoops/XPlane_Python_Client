@@ -1,5 +1,7 @@
-import zmq
+import atexit
 import time
+
+import zmq
 
 
 class XPlaneClient:
@@ -25,6 +27,8 @@ class XPlaneClient:
         self.publication_port = publisher_port
 
         self.sleep_time = 1.0
+        
+        atexit.register(self.disconnect)
 
     def connect(self):
         """
@@ -90,16 +94,16 @@ class XPlaneClient:
         Get the value of a dataref as a string.
 
         Args:
-            dref (str): dataRef of interest as a string
+            response (set): dataRef of interest as a string, time elasped since last update of dataref in seconds
 
         Returns:
             str: Value of the dataRef
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"read", bytes(dref, 'utf-8'), b"0"])
         response = self.subscriber.recv_multipart()
-        return response[1].decode("utf-8")
+        return response[1].decode("utf-8"), response[2].decode("utf-8")
 
-    def setDataRef(self, dref, value):
+    def setDataRef(self, dref, value, verbose=False):
         """
         Set the dataref to the specified value.
 
@@ -112,12 +116,40 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"set", bytes(dref, 'utf-8'), bytes(value, 'utf-8')])
         response = self.subscriber.recv_multipart()
-        if "Received" in response[1].decode("utf-8"):
-            return True
+        response_message = response[1].decode("utf-8")
+        
+        if verbose:
+            print(response_message)
+        
+        if "Received" in response_message:
+            return 0
+        elif "Error" in response_message:
+            return 1
         else:
-            return False
+            return 2
+            
+    def terminate(self, verbose=False):
+        """
+        Liberate position of writer
 
-    def sendCommand(self, dref):
+        Returns:
+            bool: True of successfully sent, false otherwise.
+        """
+        self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"terminate", b"0", b"0"])
+        response = self.subscriber.recv_multipart()
+        response_message = response[1].decode("utf-8")
+        
+        if verbose:
+            print(response_message)
+        
+        if "Received" in response_message:
+            return 0
+        elif "Error" in response_message:
+            return 1
+        else:
+            return 2
+
+    def sendCommand(self, dref, verbose=False):
         """
         Send command to Xplane.
 
@@ -129,9 +161,10 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"command", bytes(dref, 'utf-8'), b"0"])
         response = self.subscriber.recv_multipart()
+        
         if "Received" in response[1].decode("utf-8"):
-            return True
+            return 0
         else:
-            return False
+            return 1
 
 
