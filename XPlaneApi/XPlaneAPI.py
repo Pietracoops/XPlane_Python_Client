@@ -6,22 +6,15 @@ import zmq
 
 class XPlaneClient:
 
-    def __init__(self, topic, ip="127.0.0.1"):
+    def __init__(self, topic, ip="127.0.0.1", sub_port=5555, pub_port=5556):
 
         # Initialize a zeromq context
         self.context = zmq.Context()
         self.ip = ip
         self.topic = topic
 
-        try:
-            publisher_port = int(input("Enter the publisher's port (press Enter for default 5556):\n"))
-        except ValueError:
-            publisher_port = 5556
-            
-        try:
-            subscriber_port = int(input("Enter the subscriber's port (press Enter for default 5555):\n"))
-        except ValueError:
-            subscriber_port = 5555
+        publisher_port = pub_port
+        subscriber_port = sub_port
 
         self.subscription_port = subscriber_port
         self.publication_port = publisher_port
@@ -48,7 +41,7 @@ class XPlaneClient:
                 break
             except:
                 # Wait till socket is available
-                print("Trying to connect to server")
+                print(f"{self.topic} trying to connect to server")
                 time.sleep(self.sleep_time)
                 
         # Give everything a second to spin up and connect
@@ -80,10 +73,13 @@ class XPlaneClient:
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"Disconnection", b"0", b"0"])
         response = self.subscriber.recv_multipart()
 
-        print("Client disconnected")
+        # Give everything a second
+        time.sleep(self.sleep_time)
+
         if "Received" in response[1].decode("utf-8"):
             self.subscriber.disconnect(f"tcp://{self.ip}:{self.subscription_port}")
             self.publisher.unbind(f"tcp://{self.ip}:{self.publication_port}")
+            print(f"{self.topic} disconnected")
             return True
         else:
             return False
@@ -101,7 +97,7 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"read", bytes(dref, 'utf-8'), b"0"])
         response = self.subscriber.recv_multipart()
-        return response[1].decode("utf-8"), response[2].decode("utf-8")
+        return response[1].decode("utf-8")
 
     def setDataRef(self, dref, value, verbose=False):
         """
