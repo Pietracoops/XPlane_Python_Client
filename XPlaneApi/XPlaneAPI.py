@@ -1,12 +1,14 @@
 import atexit
 import time
-
+import traceback
 import zmq
 
 
 class XPlaneClient:
 
     def __init__(self, topic, ip="127.0.0.1", sub_port=5555, pub_port=5556):
+
+        zmq.RCVTIMEO = 1000
 
         # Initialize a zeromq context
         self.context = zmq.Context()
@@ -19,7 +21,7 @@ class XPlaneClient:
         self.subscription_port = subscriber_port
         self.publication_port = publisher_port
 
-        self.sleep_time = 1.0
+        self.sleep_time = 1.5
         
         atexit.register(self.disconnect)
 
@@ -30,36 +32,41 @@ class XPlaneClient:
         """
         
         # Set up a channel to send work
-        while (True):
-            try:
-                self.publisher = self.context.socket(zmq.PUB)
-                self.publisher.bind(f"tcp://{self.ip}:{self.publication_port}") # Initialization port
 
-                self.subscriber = self.context.socket(zmq.SUB)
-                self.subscriber.connect(f"tcp://{self.ip}:{self.subscription_port}")
-                self.subscriber.subscribe(self.topic)
-                break
-            except:
-                # Wait till socket is available
-                print(f"{self.topic} trying to connect to server")
-                time.sleep(self.sleep_time)
+        try:
+            self.publisher = self.context.socket(zmq.PUB)
+            self.publisher.bind(f"tcp://{self.ip}:{self.publication_port}") # Initialization port
+
+            self.subscriber = self.context.socket(zmq.SUB)
+            self.subscriber.RCVTIMEO = 5000
+            self.subscriber.connect(f"tcp://{self.ip}:{self.subscription_port}")
+            self.subscriber.subscribe(self.topic)
+
+            # Give everything a second to spin up and connect
+            time.sleep(self.sleep_time)
+
+            # Send initial connection string to register to server
+            self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"Connection"])
+            time.sleep(self.sleep_time)
+
+            response = self.subscriber.recv_multipart()
+        except:
+            # Wait till socket is available
+            self.subscriber.close()
+            self.publisher.close()
+            print(f"{self.topic} did not connect successfully")
+            return False
                 
         # Give everything a second to spin up and connect
         time.sleep(self.sleep_time)
 
-        # Send initial connection string to register to server
-        self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"Connection"])
-        time.sleep(self.sleep_time)
-        
-        response = self.subscriber.recv_multipart()
-        
         # Disconnect and unbind from old sockets
         self.publisher.unbind(f"tcp://{self.ip}:{self.publication_port}")
         self.subscriber.disconnect(f"tcp://{self.ip}:{self.subscription_port}")
         
         self.publication_port = response[1].decode("utf-8")
         self.subscription_port = response[2].decode("utf-8")
-        print(f"Connected to Xplane Server on publication {self.publication_port} port and subscription {self.subscription_port} port")
+        print(f"{self.topic} connected to Xplane Server on publication {self.publication_port} port and subscription {self.subscription_port} port")
 
         # Rebind the connection for the new ports
         self.publisher.bind(f"tcp://{self.ip}:{self.publication_port}")
@@ -67,6 +74,7 @@ class XPlaneClient:
 
         # Give everything a second to spin up and connect
         time.sleep(self.sleep_time)
+        return True
 
     def disconnect(self):
         # Send disconnection message to server
@@ -79,6 +87,9 @@ class XPlaneClient:
         if "Received" in response[1].decode("utf-8"):
             self.subscriber.disconnect(f"tcp://{self.ip}:{self.subscription_port}")
             self.publisher.unbind(f"tcp://{self.ip}:{self.publication_port}")
+            self.subscriber.close()
+            self.publisher.close()
+            self.context.term()
             print(f"{self.topic} disconnected")
             return True
         else:
@@ -97,7 +108,7 @@ class XPlaneClient:
         """
         self.publisher.send_multipart([bytes(self.topic, 'utf-8'), b"read", bytes(dref, 'utf-8'), b"0"])
         response = self.subscriber.recv_multipart()
-        return response[1].decode("utf-8")
+        return response[1].decode("utf-8"), response[2].decode("utf-8")
 
     def setDataRef(self, dref, value, verbose=False):
         """

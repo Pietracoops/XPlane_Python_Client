@@ -3,13 +3,15 @@ import time
 
 client1 = XPlaneClient("Python1")
 client2 = XPlaneClient("Python2")
-client3 = XPlaneClient("Python3")
+
 
 # Call the connect command
-client1.connect()
-client2.connect()
-client3.connect()
-
+if not client1.connect():
+   print("Connection client 1 failed")
+   exit()
+if not client2.connect():
+   print("Connection client 1 failed")
+   exit()
 
 # Modify and read value at same time
 for i in range(0, 100, 1):
